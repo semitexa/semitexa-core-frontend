@@ -128,8 +128,14 @@ class LayoutLoader
             $dir = $parent;
         }
 
-        // Last resort: /var/www/html for Docker
-        $root = '/var/www/html';
+        // Last resort: /var/www/html only when it is a valid project root (Docker)
+        $dockerRoot = '/var/www/html';
+        if (is_file($dockerRoot . '/composer.json') && is_dir($dockerRoot . '/src/modules')) {
+            $root = $dockerRoot;
+            return $root;
+        }
+
+        $root = $dockerRoot;
         return $root;
     }
 }
