@@ -90,7 +90,10 @@ class LayoutLoader
         return 'project-layouts-' . $module;
     }
 
-    private static function getProjectRoot(): string
+    /**
+     * Project root (where composer.json and src/modules/ live). Public so TwigFactory can use the same root for namespace resolution.
+     */
+    public static function getProjectRoot(): string
     {
         static $root = null;
         if ($root !== null) {

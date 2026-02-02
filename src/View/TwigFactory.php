@@ -6,6 +6,7 @@ namespace Syntexa\Frontend\View;
 
 use Syntexa\Core\ModuleRegistry;
 use Syntexa\Core\Environment;
+use Syntexa\Frontend\Layout\LayoutLoader;
 use Syntexa\Frontend\Layout\LayoutSlotRegistry;
 use Twig\Environment as TwigEnvironment;
 use Twig\Loader\FilesystemLoader;
@@ -82,17 +83,19 @@ class TwigFactory
 
     private static function getCacheDir(): string
     {
-        $root = dirname(__DIR__, 5);
-        return $root . '/var/cache/twig';
+        return LayoutLoader::getProjectRoot() . '/var/cache/twig';
     }
 
     /**
      * Discover template paths per module for Twig alias project-layouts-{Module}.
-     * Prefer Standard Module Layout: Application/View/templates/; fallback to legacy Layout/ at module root.
+     * When Application/View/templates/ exists (Standard Module Layout), use it.
+     * When both Application/View/templates/ and Layout/ exist, use Application/View/templates/ so that
+     * @project-layouts-{Module}/layout/base.html.twig resolves correctly. Fallback to Layout/ only when
+     * Application/View/templates/ does not exist. Uses same project root as LayoutLoader for consistency.
      */
     private static function discoverProjectLayoutPaths(): array
     {
-        $projectRoot = self::getProjectRoot();
+        $projectRoot = LayoutLoader::getProjectRoot();
         $modulesRoot = $projectRoot . '/src/modules';
         if (!is_dir($modulesRoot)) {
             return [];
@@ -103,58 +106,17 @@ class TwigFactory
         foreach ($moduleDirs as $moduleDir) {
             $module = basename($moduleDir);
             $templatesDir = $moduleDir . '/src/Application/View/templates';
+            $layoutDir = $moduleDir . '/Layout';
+
+            // Prefer Application/View/templates/ when it exists (including when both exist)
             if (is_dir($templatesDir)) {
-                $paths[$module] = $templatesDir;
-            } else {
-                $layoutDir = $moduleDir . '/Layout';
-                if (is_dir($layoutDir)) {
-                    $paths[$module] = $layoutDir;
-                }
+                $paths[$module] = realpath($templatesDir) ?: $templatesDir;
+            } elseif (is_dir($layoutDir)) {
+                $paths[$module] = realpath($layoutDir) ?: $layoutDir;
             }
         }
 
         return $paths;
-    }
-
-    private static function getProjectRoot(): string
-    {
-        static $root = null;
-        if ($root !== null) {
-            return $root;
-        }
-
-        // Calculate project root: from packages/syntexa/core-frontend/src/View go up
-        // In container, file is at /var/www/packages/syntexa/core-frontend/src/View/TwigFactory.php
-        // Going up 6 levels gives us /var/www, then we need to add /html
-        $calculatedRoot = dirname(__FILE__, 6);
-        // If we're in /var/www, add /html to get /var/www/html
-        if ($calculatedRoot === '/var/www' || str_ends_with($calculatedRoot, '/www')) {
-            $calculatedRoot = '/var/www/html';
-        }
-        
-        // Verify it's actually a project root
-        if (is_file($calculatedRoot . '/composer.json') && is_dir($calculatedRoot . '/src/modules')) {
-            $root = $calculatedRoot;
-            return $root;
-        }
-
-        // Fallback: try walking up from current directory
-        $dir = __DIR__;
-        while ($dir !== '/' && $dir !== '') {
-            if (is_file($dir . '/composer.json') && is_dir($dir . '/src/modules')) {
-                $root = $dir;
-                return $root;
-            }
-            $parent = dirname($dir);
-            if ($parent === $dir) {
-                break;
-            }
-            $dir = $parent;
-        }
-
-        // Last resort: use calculated root anyway
-        $root = $calculatedRoot;
-        return $root;
     }
 
     private static function layoutAlias(string $module): string
