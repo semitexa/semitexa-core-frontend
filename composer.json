@@ -23,7 +23,6 @@
             "name": "core-frontend",
             "description": "Server-Side Rendering capabilities using Twig"
         }
-    }
+    },
+    "version": "0.0.1"
 }
-
-
